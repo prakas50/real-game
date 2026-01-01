@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aviator Admin - God Mode</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body { background: #1a1a1a; color: white; font-family: sans-serif; padding: 20px; }
+        .card { background: #333; padding: 20px; margin-bottom: 20px; border-radius: 10px; border: 1px solid #444; }
+        h2 { margin-top: 0; color: #e91e63; }
+        input, button { padding: 10px; margin: 5px 0; width: 100%; border-radius: 5px; border: none; }
+        input { background: #222; color: white; border: 1px solid #555; }
+        button { cursor: pointer; font-weight: bold; }
+        .btn-green { background: #2ea043; color: white; }
+        .btn-red { background: #da3633; color: white; }
+        .user-row { display: flex; justify-content: space-between; padding: 10px; background: #222; margin-bottom: 5px; align-items: center; }
+    </style>
+</head>
+<body>
+
+    <h1>🔧 OWNER CONTROL PANEL</h1>
+
+    <div class="card">
+        <h2>🎮 Rig The Game (Result Fixing)</h2>
+        <p>Current Status: <span id="status" style="font-weight:bold; color:orange;">WAITING</span></p>
+        <p>Next Crash Point:</p>
+        <input type="number" id="fix-value" placeholder="Enter Multiplier (e.g. 5.00)">
+        <button class="btn-red" onclick="setCrash()">SET RESULT</button>
+        <p style="font-size:12px; color:#aaa;">*Leave empty for random result</p>
+    </div>
+
+    <div class="card">
+        <h2>👥 User Manager</h2>
+        <button class="btn-green" onclick="refreshUsers()">🔄 Refresh User List</button>
+        <div id="user-list" style="margin-top:15px;">
+            </div>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:3000');
+
+        socket.on('connect', () => {
+            console.log("Admin Connected");
+            refreshUsers();
+        });
+
+        // Update Game Status
+        socket.on('state-change', (data) => {
+            document.getElementById('status').innerText = data.state;
+        });
+
+        // 1. SET CRASH POINT
+        function setCrash() {
+            let val = document.getElementById('fix-value').value;
+            if(val) {
+                socket.emit('admin-set-crash', parseFloat(val));
+                alert("Next Round Fixed at " + val + "x");
+            } else {
+                socket.emit('admin-set-crash', null);
+                alert("Game set to Random Mode");
+            }
+        }
+
+        // 2. GET USERS
+        function refreshUsers() {
+            socket.emit('admin-get-users');
+        }
+
+        socket.on('admin-users-data', (users) => {
+            let html = "";
+            users.forEach(u => {
+                html += `
+                <div class="user-row">
+                    <div>
+                        <strong>${u.username}</strong><br>
+                        <span style="color:#2ea043">₹${u.balance.toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                        <button style="background:#555; width:auto; padding:5px 10px;" onclick="changeBal('${u.username}', 1000)">+1k</button>
+                        <button style="background:#555; width:auto; padding:5px 10px;" onclick="changeBal('${u.username}', -1000)">-1k</button>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('user-list').innerHTML = html;
+        });
+
+        // 3. CHANGE BALANCE
+        function changeBal(username, amount) {
+            socket.emit('admin-add-money', { username, amount });
+            setTimeout(refreshUsers, 500); // Refresh list
+        }
+    </script>
+</body>
+</html>
