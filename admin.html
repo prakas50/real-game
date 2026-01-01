@@ -3,93 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aviator Admin - God Mode</title>
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <title>Admin God Mode</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { background: #1a1a1a; color: white; font-family: sans-serif; padding: 20px; }
-        .card { background: #333; padding: 20px; margin-bottom: 20px; border-radius: 10px; border: 1px solid #444; }
-        h2 { margin-top: 0; color: #e91e63; }
-        input, button { padding: 10px; margin: 5px 0; width: 100%; border-radius: 5px; border: none; }
-        input { background: #222; color: white; border: 1px solid #555; }
-        button { cursor: pointer; font-weight: bold; }
-        .btn-green { background: #2ea043; color: white; }
-        .btn-red { background: #da3633; color: white; }
-        .user-row { display: flex; justify-content: space-between; padding: 10px; background: #222; margin-bottom: 5px; align-items: center; }
+        body { background-color: #0f1923; color: white; font-family: 'Roboto', sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
+        
+        h1, h2 { color: #e91e63; text-align: center; font-style: italic; }
+        .section { background: #18222d; padding: 20px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #2c3b4e; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        
+        /* INPUTS & BUTTONS */
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #0d1117; border: 1px solid #333; color: white; border-radius: 5px; font-size: 16px; text-align: center; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 5px; transition: 0.2s; }
+        
+        .btn-set { background: #e91e63; color: white; }
+        .btn-set:hover { background: #c2185b; }
+        
+        .btn-approve { background: #2ea043; color: white; width: 48%; display: inline-block; }
+        .btn-reject { background: #da3633; color: white; width: 48%; display: inline-block; }
+
+        /* DEPOSIT CARDS */
+        .request-card { background: #222; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #e91e63; }
+        .user-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
+        .utr-text { font-size: 11px; color: #888; display: block; margin-bottom: 10px; }
+        
+        .empty-msg { text-align: center; color: #555; font-style: italic; }
     </style>
 </head>
 <body>
 
-    <h1>🔧 OWNER CONTROL PANEL</h1>
+    <h1>⚡ ADMIN PANEL ⚡</h1>
 
-    <div class="card">
-        <h2>🎮 Rig The Game (Result Fixing)</h2>
-        <p>Current Status: <span id="status" style="font-weight:bold; color:orange;">WAITING</span></p>
-        <p>Next Crash Point:</p>
-        <input type="number" id="fix-value" placeholder="Enter Multiplier (e.g. 5.00)">
-        <button class="btn-red" onclick="setCrash()">SET RESULT</button>
-        <p style="font-size:12px; color:#aaa;">*Leave empty for random result</p>
+    <div class="section">
+        <h2>🎮 Game Control</h2>
+        <p style="color:#888; font-size:12px; text-align:center;">Set result for next round</p>
+        <input type="number" id="crash-point" placeholder="Example: 5.00">
+        <button class="btn-set" onclick="setResult()">SET RESULT</button>
+        <p id="msg" style="text-align:center; margin-top:10px; font-size:12px; color:#2ea043;"></p>
     </div>
 
-    <div class="card">
-        <h2>👥 User Manager</h2>
-        <button class="btn-green" onclick="refreshUsers()">🔄 Refresh User List</button>
-        <div id="user-list" style="margin-top:15px;">
-            </div>
+    <div class="section">
+        <h2>💰 Deposit Requests</h2>
+        <div id="deposit-list">
+            <div class="empty-msg">Waiting for requests...</div>
+        </div>
     </div>
 
     <script>
-        const socket = io('http://localhost:3000');
+        const socket = io();
 
-        socket.on('connect', () => {
-            console.log("Admin Connected");
-            refreshUsers();
-        });
-
-        // Update Game Status
-        socket.on('state-change', (data) => {
-            document.getElementById('status').innerText = data.state;
-        });
-
-        // 1. SET CRASH POINT
-        function setCrash() {
-            let val = document.getElementById('fix-value').value;
+        // --- 1. GAME CONTROL LOGIC ---
+        function setResult() {
+            const val = parseFloat(document.getElementById('crash-point').value);
             if(val) {
-                socket.emit('admin-set-crash', parseFloat(val));
-                alert("Next Round Fixed at " + val + "x");
-            } else {
-                socket.emit('admin-set-crash', null);
-                alert("Game set to Random Mode");
+                // Server ko batao ki result fix karna hai (Iske liye server mein logic hona chahiye)
+                // Note: Real Money server code jo diya tha usme rigging logic hidden tha, 
+                // agar server.js mein 'admin-set-result' nahi hai toh ye kaam nahi karega, 
+                // par deposit wala zaroor karega.
+                socket.emit('admin-set-crash', val); 
+                document.getElementById('msg').innerText = "Next Round Fixed @ " + val + "x";
             }
         }
 
-        // 2. GET USERS
-        function refreshUsers() {
-            socket.emit('admin-get-users');
-        }
+        // --- 2. DEPOSIT LOGIC ---
+        
+        // Har 2 second mein list refresh karo
+        setInterval(() => {
+            socket.emit('admin-get-deposits');
+        }, 2000);
 
-        socket.on('admin-users-data', (users) => {
-            let html = "";
-            users.forEach(u => {
-                html += `
-                <div class="user-row">
-                    <div>
-                        <strong>${u.username}</strong><br>
-                        <span style="color:#2ea043">₹${u.balance.toFixed(2)}</span>
+        socket.on('admin-deposit-list', (list) => {
+            const container = document.getElementById('deposit-list');
+            if(list.length === 0) {
+                container.innerHTML = '<div class="empty-msg">No Pending Requests</div>';
+                return;
+            }
+
+            container.innerHTML = "";
+            list.forEach(req => {
+                const div = document.createElement('div');
+                div.className = "request-card";
+                div.innerHTML = `
+                    <div class="user-row">
+                        <strong style="color:#e91e63; font-size:16px;">${req.username}</strong>
+                        <strong style="color:#2ea043; font-size:18px;">₹${req.amount}</strong>
                     </div>
-                    <div style="display:flex; gap:5px;">
-                        <button style="background:#555; width:auto; padding:5px 10px;" onclick="changeBal('${u.username}', 1000)">+1k</button>
-                        <button style="background:#555; width:auto; padding:5px 10px;" onclick="changeBal('${u.username}', -1000)">-1k</button>
+                    <span class="utr-text">UTR: ${req.utr} <br> Date: ${new Date(req.date).toLocaleTimeString()}</span>
+                    <div style="display:flex; justify-content:space-between;">
+                        <button class="btn-approve" onclick="approve('${req._id}')">✅ Accept</button>
+                        <button class="btn-reject" onclick="reject('${req._id}')">❌ Reject</button>
                     </div>
-                </div>`;
+                `;
+                container.appendChild(div);
             });
-            document.getElementById('user-list').innerHTML = html;
         });
 
-        // 3. CHANGE BALANCE
-        function changeBal(username, amount) {
-            socket.emit('admin-add-money', { username, amount });
-            setTimeout(refreshUsers, 500); // Refresh list
+        function approve(id) {
+            if(confirm("Add Money to User Wallet?")) {
+                socket.emit('admin-approve-deposit', id);
+            }
         }
+
+        function reject(id) {
+            if(confirm("Reject this request?")) {
+                socket.emit('admin-reject-deposit', id);
+            }
+        }
+
     </script>
 </body>
 </html>
