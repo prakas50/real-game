@@ -1,115 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin God Mode</title>
+    <title>Admin - Transaction Manager</title>
     <script src="/socket.io/socket.io.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #0f1923; color: white; font-family: 'Roboto', sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
-        
-        h1, h2 { color: #e91e63; text-align: center; font-style: italic; }
-        .section { background: #18222d; padding: 20px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #2c3b4e; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-        
-        /* INPUTS & BUTTONS */
-        input { width: 100%; padding: 12px; margin: 10px 0; background: #0d1117; border: 1px solid #333; color: white; border-radius: 5px; font-size: 16px; text-align: center; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 5px; transition: 0.2s; }
-        
-        .btn-set { background: #e91e63; color: white; }
-        .btn-set:hover { background: #c2185b; }
-        
-        .btn-approve { background: #2ea043; color: white; width: 48%; display: inline-block; }
-        .btn-reject { background: #da3633; color: white; width: 48%; display: inline-block; }
-
-        /* DEPOSIT CARDS */
-        .request-card { background: #222; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #e91e63; }
-        .user-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
-        .utr-text { font-size: 11px; color: #888; display: block; margin-bottom: 10px; }
-        
-        .empty-msg { text-align: center; color: #555; font-style: italic; }
+        body { background: #111; color: white; font-family: sans-serif; padding: 20px; }
+        .card { background: #222; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #555; display: flex; justify-content: space-between; align-items: center; }
+        .type-DEPOSIT { border-color: #2ea043; } 
+        .type-WITHDRAW { border-color: #e74c3c; }
+        button { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-left: 5px; }
+        .btn-yes { background: #2ea043; color: white; } .btn-no { background: #e74c3c; color: white; }
     </style>
 </head>
 <body>
-
-    <h1>⚡ ADMIN PANEL ⚡</h1>
-
-    <div class="section">
-        <h2>🎮 Game Control</h2>
-        <p style="color:#888; font-size:12px; text-align:center;">Set result for next round</p>
-        <input type="number" id="crash-point" placeholder="Example: 5.00">
-        <button class="btn-set" onclick="setResult()">SET RESULT</button>
-        <p id="msg" style="text-align:center; margin-top:10px; font-size:12px; color:#2ea043;"></p>
-    </div>
-
-    <div class="section">
-        <h2>💰 Deposit Requests</h2>
-        <div id="deposit-list">
-            <div class="empty-msg">Waiting for requests...</div>
-        </div>
-    </div>
+    <h2>💰 Pending Transactions (Deposit & Withdraw)</h2>
+    <div id="list">Loading...</div>
 
     <script>
         const socket = io();
+        setInterval(() => socket.emit('admin-get-pending'), 2000);
 
-        // --- 1. GAME CONTROL LOGIC ---
-        function setResult() {
-            const val = parseFloat(document.getElementById('crash-point').value);
-            if(val) {
-                // Server ko batao ki result fix karna hai (Iske liye server mein logic hona chahiye)
-                // Note: Real Money server code jo diya tha usme rigging logic hidden tha, 
-                // agar server.js mein 'admin-set-result' nahi hai toh ye kaam nahi karega, 
-                // par deposit wala zaroor karega.
-                socket.emit('admin-set-crash', val); 
-                document.getElementById('msg').innerText = "Next Round Fixed @ " + val + "x";
-            }
-        }
-
-        // --- 2. DEPOSIT LOGIC ---
-        
-        // Har 2 second mein list refresh karo
-        setInterval(() => {
-            socket.emit('admin-get-deposits');
-        }, 2000);
-
-        socket.on('admin-deposit-list', (list) => {
-            const container = document.getElementById('deposit-list');
-            if(list.length === 0) {
-                container.innerHTML = '<div class="empty-msg">No Pending Requests</div>';
-                return;
-            }
-
-            container.innerHTML = "";
-            list.forEach(req => {
-                const div = document.createElement('div');
-                div.className = "request-card";
+        socket.on('admin-pending-list', list => {
+            const d = document.getElementById('list'); 
+            if(list.length===0) { d.innerHTML="<p>No requests.</p>"; return; }
+            d.innerHTML = "";
+            list.forEach(t => {
+                let color = t.type === 'DEPOSIT' ? '#2ea043' : '#e74c3c';
+                let div = document.createElement('div');
+                div.className = `card type-${t.type}`;
                 div.innerHTML = `
-                    <div class="user-row">
-                        <strong style="color:#e91e63; font-size:16px;">${req.username}</strong>
-                        <strong style="color:#2ea043; font-size:18px;">₹${req.amount}</strong>
+                    <div>
+                        <strong style="color:${color}">${t.type}</strong> | 
+                        User: <strong>${t.username}</strong> | 
+                        Amt: <strong>₹${t.amount}</strong><br>
+                        <small>Detail: ${t.details}</small>
                     </div>
-                    <span class="utr-text">UTR: ${req.utr} <br> Date: ${new Date(req.date).toLocaleTimeString()}</span>
-                    <div style="display:flex; justify-content:space-between;">
-                        <button class="btn-approve" onclick="approve('${req._id}')">✅ Accept</button>
-                        <button class="btn-reject" onclick="reject('${req._id}')">❌ Reject</button>
+                    <div>
+                        <button class="btn-yes" onclick="act('${t._id}','APPROVE')">✔ Approve</button>
+                        <button class="btn-no" onclick="act('${t._id}','REJECT')">✖ Reject</button>
                     </div>
                 `;
-                container.appendChild(div);
+                d.appendChild(div);
             });
         });
 
-        function approve(id) {
-            if(confirm("Add Money to User Wallet?")) {
-                socket.emit('admin-approve-deposit', id);
+        function act(id, action) {
+            if(confirm(`Are you sure you want to ${action}?`)) {
+                socket.emit('admin-action', { id, action });
             }
         }
-
-        function reject(id) {
-            if(confirm("Reject this request?")) {
-                socket.emit('admin-reject-deposit', id);
-            }
-        }
-
     </script>
 </body>
 </html>

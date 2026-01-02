@@ -9,41 +9,46 @@ const app = express();
 app.use(cors());
 app.use(express.static(__dirname));
 
-// Routes
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
 app.get('/admin', (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
-// --- DATABASE CONNECT ---
+// --- DATABASE ---
 const DB_URI = "mongodb+srv://prakashnangalbani_db_user:Pkdiit%40123@cluster0.5465gly.mongodb.net/?appName=Cluster0";
 mongoose.connect(DB_URI).then(() => console.log("✅ DATABASE CONNECTED!")).catch(err => console.log("❌ DB Error:", err));
 
-// --- MODELS ---
+// --- SCHEMAS ---
 const userSchema = new mongoose.Schema({
     username: { type: String, unique: true, required: true },
-    password: { type: String, required: true }, // PASSWORD FIELD ADDED
+    password: { type: String, required: true },
     balance: { type: Number, default: 0 }
 });
 const User = mongoose.model('User', userSchema);
 
+// Transaction Schema (Deposit & Withdraw dono ke liye)
+const transSchema = new mongoose.Schema({
+    username: String,
+    type: String, // 'DEPOSIT' or 'WITHDRAW'
+    amount: Number,
+    details: String, // UTR or UPI ID
+    status: { type: String, default: "PENDING" }, // PENDING, SUCCESS, REJECTED
+    date: { type: Date, default: Date.now }
+});
+const Transaction = mongoose.model('Transaction', transSchema);
+
 const historySchema = new mongoose.Schema({ multiplier: Number, time: { type: Date, default: Date.now } });
 const History = mongoose.model('History', historySchema);
 
-const depositSchema = new mongoose.Schema({
-    username: String, amount: Number, utr: String, status: { type: String, default: "PENDING" }, date: { type: Date, default: Date.now }
-});
-const Deposit = mongoose.model('Deposit', depositSchema);
-
-// --- VARIABLES ---
+// Game Vars
 let gameHistory = [];
 let gameState = "IDLE";
 let multiplier = 1.00;
 let crashPoint = 0;
 let countdown = 8;
 
-// History Load
+// Load History
 async function loadHistory() {
     const old = await History.find().sort({ time: -1 }).limit(20);
     gameHistory = old.map(d => d.multiplier);
@@ -84,38 +89,28 @@ async function handleCrash(val) {
     setTimeout(startGameLoop, 4000);
 }
 
-// --- SOCKET LOGIC ---
 io.on('connection', (socket) => {
     socket.emit('history-update', gameHistory);
     socket.emit("welcome", { gameState, multiplier, countdown });
 
-    // --- NEW: AUTHENTICATION SYSTEM ---
-    
-    // 1. REGISTER
+    // AUTH
     socket.on('register', async (data) => {
-        const { username, password } = data;
-        const exists = await User.findOne({ username });
-        if(exists) {
-            socket.emit('auth-error', "Username already taken!");
-        } else {
-            const newUser = new User({ username, password, balance: 50 }); // 50 Bonus
+        const exists = await User.findOne({ username: data.username });
+        if(exists) socket.emit('auth-error', "Username taken!");
+        else {
+            const newUser = new User({ username: data.username, password: data.password, balance: 20 }); // 20 Signup Bonus
             await newUser.save();
             socket.emit('login-success', { username: newUser.username, balance: newUser.balance });
         }
     });
 
-    // 2. LOGIN
     socket.on('login', async (data) => {
-        const { username, password } = data;
-        const user = await User.findOne({ username, password }); // Check ID & Pass
-        if(user) {
-            socket.emit('login-success', { username: user.username, balance: user.balance });
-        } else {
-            socket.emit('auth-error', "Wrong Username or Password!");
-        }
+        const user = await User.findOne({ username: data.username, password: data.password });
+        if(user) socket.emit('login-success', { username: user.username, balance: user.balance });
+        else socket.emit('auth-error', "Wrong ID/Pass!");
     });
 
-    // --- GAME ACTIONS ---
+    // GAMEPLAY
     socket.on('place-bet', async (data) => {
         if (gameState !== "IDLE") return;
         let player = await User.findOne({ username: data.username });
@@ -134,23 +129,65 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- MONEY SYSTEM ---
-    socket.on('deposit-request', async (data) => {
-        try { const newDep = new Deposit(data); await newDep.save(); } catch(e){}
+    // --- WALLET SYSTEM ---
+
+    // 1. User History Fetch
+    socket.on('get-transactions', async (username) => {
+        const list = await Transaction.find({ username }).sort({ date: -1 }).limit(20);
+        socket.emit('transaction-history', list);
     });
-    
-    // Admin Calls
-    socket.on('admin-get-deposits', async () => { socket.emit('admin-deposit-list', await Deposit.find({ status: "PENDING" })); });
-    socket.on('admin-approve-deposit', async (id) => {
-        const dep = await Deposit.findById(id);
-        if (dep && dep.status === "PENDING") {
-            dep.status = "APPROVED"; await dep.save();
-            const user = await User.findOne({ username: dep.username });
-            if(user) { user.balance += dep.amount; await user.save(); io.emit('force-balance-update', { username: user.username, balance: user.balance }); }
+
+    // 2. Deposit Request
+    socket.on('deposit-request', async (data) => {
+        const t = new Transaction({ username: data.username, type: "DEPOSIT", amount: data.amount, details: data.utr });
+        await t.save();
+    });
+
+    // 3. Withdraw Request
+    socket.on('withdraw-request', async (data) => {
+        let player = await User.findOne({ username: data.username });
+        if(player && player.balance >= data.amount) {
+            // Cut Balance Immediately
+            player.balance -= data.amount; 
+            await player.save();
+            socket.emit('balance-update', player.balance);
+
+            const t = new Transaction({ username: data.username, type: "WITHDRAW", amount: data.amount, details: data.upi });
+            await t.save();
+            socket.emit('withdraw-success', "Withdrawal Pending!");
+        } else {
+            socket.emit('withdraw-error', "Insufficient Balance!");
         }
     });
-    socket.on('admin-reject-deposit', async (id) => { 
-        const dep = await Deposit.findById(id); if (dep) { dep.status = "REJECTED"; await dep.save(); } 
+
+    // --- ADMIN ACTIONS ---
+    socket.on('admin-get-pending', async () => {
+        const list = await Transaction.find({ status: "PENDING" });
+        socket.emit('admin-pending-list', list);
+    });
+
+    socket.on('admin-action', async (data) => {
+        // data = { id, action: 'APPROVE' or 'REJECT' }
+        const t = await Transaction.findById(data.id);
+        if(!t || t.status !== "PENDING") return;
+
+        t.status = data.action === "APPROVE" ? "SUCCESS" : "REJECTED";
+        await t.save();
+
+        const player = await User.findOne({ username: t.username });
+        if(player) {
+            if(t.type === "DEPOSIT" && data.action === "APPROVE") {
+                player.balance += t.amount;
+                await player.save();
+            }
+            else if(t.type === "WITHDRAW" && data.action === "REJECT") {
+                // Refund money if withdraw rejected
+                player.balance += t.amount;
+                await player.save();
+            }
+            // Notify User
+            io.emit('force-balance-update', { username: player.username, balance: player.balance });
+        }
     });
 });
 
