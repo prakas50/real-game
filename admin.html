@@ -1,43 +1,60 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Admin - Transaction Manager</title>
+    <title>Admin Dashboard</title>
     <script src="/socket.io/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { background: #111; color: white; font-family: sans-serif; padding: 20px; }
-        .card { background: #222; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #555; display: flex; justify-content: space-between; align-items: center; }
-        .type-DEPOSIT { border-color: #2ea043; } 
-        .type-WITHDRAW { border-color: #e74c3c; }
-        button { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-left: 5px; }
-        .btn-yes { background: #2ea043; color: white; } .btn-no { background: #e74c3c; color: white; }
+        body { background: #1a1a1a; color: white; font-family: 'Roboto', sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        h2 { border-bottom: 2px solid #ff2e63; padding-bottom: 10px; color: #ff2e63; }
+        
+        .card { background: #2d2d2d; padding: 15px; margin-bottom: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #888; }
+        .type-DEPOSIT { border-color: #20bf55; }
+        .type-WITHDRAW { border-color: #eb4d4b; }
+        
+        button { padding: 8px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: white; margin-left: 5px; }
+        .btn-yes { background: #20bf55; } .btn-no { background: #eb4d4b; }
+        .btn-rig { background: #ff2e63; width: 100%; padding: 12px; margin-top: 10px; }
+        
+        input { padding: 10px; width: 100%; background: #333; border: 1px solid #555; color: white; text-align: center; font-size: 18px; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h2>💰 Pending Transactions (Deposit & Withdraw)</h2>
+    <h1>⚡ ULTRA ADMIN PANEL</h1>
+
+    <div style="background:#222; padding:20px; border-radius:10px; margin-bottom:30px;">
+        <h3>🎮 FIX NEXT RESULT</h3>
+        <input type="number" id="rig-val" placeholder="Enter Crash Point (e.g. 5.50)">
+        <button class="btn-rig" onclick="setRig()">SET CRASH POINT</button>
+    </div>
+
+    <h2>💰 PENDING REQUESTS</h2>
+    <button onclick="refresh()" style="background:#444; margin-bottom:15px;">Refresh List</button>
     <div id="list">Loading...</div>
 
     <script>
         const socket = io();
-        setInterval(() => socket.emit('admin-get-pending'), 2000);
+        
+        function refresh() { socket.emit('admin-data-req'); }
+        setInterval(refresh, 3000); // Auto Refresh
 
-        socket.on('admin-pending-list', list => {
-            const d = document.getElementById('list'); 
-            if(list.length===0) { d.innerHTML="<p>No requests.</p>"; return; }
+        socket.on('admin-pending-res', list => {
+            const d = document.getElementById('list');
+            if(list.length === 0) { d.innerHTML = "<p>No pending requests.</p>"; return; }
+            
             d.innerHTML = "";
             list.forEach(t => {
-                let color = t.type === 'DEPOSIT' ? '#2ea043' : '#e74c3c';
                 let div = document.createElement('div');
                 div.className = `card type-${t.type}`;
                 div.innerHTML = `
                     <div>
-                        <strong style="color:${color}">${t.type}</strong> | 
-                        User: <strong>${t.username}</strong> | 
-                        Amt: <strong>₹${t.amount}</strong><br>
-                        <small>Detail: ${t.details}</small>
+                        <strong style="color:${t.type==='DEPOSIT'?'#20bf55':'#eb4d4b'}">${t.type}</strong> <br>
+                        User: <strong>${t.username}</strong> | Amt: ₹${t.amount} <br>
+                        <small>Details: ${t.method_details}</small>
                     </div>
                     <div>
-                        <button class="btn-yes" onclick="act('${t._id}','APPROVE')">✔ Approve</button>
-                        <button class="btn-no" onclick="act('${t._id}','REJECT')">✖ Reject</button>
+                        <button class="btn-yes" onclick="act('${t._id}','APPROVE')">✔</button>
+                        <button class="btn-no" onclick="act('${t._id}','REJECT')">✖</button>
                     </div>
                 `;
                 d.appendChild(div);
@@ -45,9 +62,15 @@
         });
 
         function act(id, action) {
-            if(confirm(`Are you sure you want to ${action}?`)) {
-                socket.emit('admin-action', { id, action });
+            if(confirm("Confirm Action?")) {
+                socket.emit('admin-transact', { id, action });
+                setTimeout(refresh, 500);
             }
+        }
+
+        function setRig() {
+            let v = document.getElementById('rig-val').value;
+            if(v) { socket.emit('admin-rig-game', v); alert("Next Round Fixed!"); }
         }
     </script>
 </body>

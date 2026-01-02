@@ -3,191 +3,343 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aviator Pro - Real Money</title>
+    <title>Aviator Premium</title>
+    
     <script src="/socket.io/socket.io.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
     <style>
-        body { background: #0f1923; color: white; font-family: sans-serif; margin: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
-        
+        /* ======================== 
+           ULTRA PRO MAX STYLES 
+           ======================== */
+        :root {
+            --bg: #0f1923; --panel: #18222d; --accent: #ff2e63;
+            --win: #20bf55; --loss: #eb4d4b; --text: #ecf0f1;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
         /* HEADER */
-        .header { height: 60px; background: #18222d; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 1px solid #333; }
-        .logo { color: #e91e63; font-weight: 900; font-size: 22px; font-style: italic; }
-        .wallet { background: #238636; padding: 5px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-        
-        /* AUTH MODAL */
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 5000; display: flex; justify-content: center; align-items: center; }
-        .box { background: #18222d; padding: 30px; border-radius: 15px; text-align: center; width: 90%; max-width: 350px; border: 1px solid #333; }
-        .inp { width: 100%; padding: 12px; margin: 10px 0; background: #0f1923; border: 1px solid #444; color: white; border-radius: 5px; text-align: center; }
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: white; }
-        .btn-g { background: #238636; } .btn-b { background: #2980b9; } .btn-r { background: #e74c3c; }
+        .header { height: 60px; background: var(--panel); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 1px solid #333; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 100; }
+        .logo { font-size: 24px; font-weight: 900; color: var(--accent); font-style: italic; letter-spacing: -1px; display: flex; align-items: center; gap: 5px; }
+        .wallet-btn { background: #238636; padding: 6px 15px; border-radius: 50px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.2); }
+        .menu-icon { font-size: 20px; color: #888; cursor: pointer; margin-left: 15px; }
 
-        /* WALLET MODAL (TABS) */
-        .w-tabs { display: flex; border-bottom: 1px solid #444; margin-bottom: 15px; }
-        .w-tab { flex: 1; padding: 10px; cursor: pointer; color: #888; font-size: 14px; font-weight: bold; }
-        .w-tab.active { color: #e91e63; border-bottom: 2px solid #e91e63; }
-        .w-content { display: none; }
-        .w-content.active { display: block; }
+        /* MAIN LAYOUT */
+        .container { flex: 1; display: flex; height: calc(100% - 60px); }
+        .sidebar { width: 280px; background: #131b24; border-right: 1px solid #333; display: flex; flex-direction: column; }
+        .game-stage { flex: 1; display: flex; flex-direction: column; background: #000; position: relative; }
         
-        /* HISTORY LIST */
-        .h-list { max-height: 200px; overflow-y: auto; text-align: left; }
-        .h-item { font-size: 12px; padding: 8px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; }
-        .st-PENDING { color: #f1c40f; } .st-SUCCESS { color: #2ecc71; } .st-REJECTED { color: #e74c3c; }
+        @media(max-width: 900px) { .sidebar { display: none; } }
 
-        /* GAME AREA */
-        .game { flex: 1; position: relative; display: flex; flex-direction: column; background: #000; }
-        canvas { width: 100%; height: 100%; }
-        .hud { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
-        .mult { font-size: 70px; font-weight: 900; }
+        /* GAME CANVAS AREA */
+        .canvas-container { flex: 1; position: relative; overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; }
         
-        .controls { background: #18222d; padding: 15px; display: flex; gap: 10px; justify-content: center; border-top: 1px solid #333; }
-        .bet-inp { width: 80px; text-align: center; font-size: 18px; font-weight: bold; background: #0f1923; color: white; border: 1px solid #444; border-radius: 5px; }
-        .act-btn { width: 120px; height: 60px; border-radius: 10px; font-size: 20px; font-weight: 900; border: none; cursor: pointer; color: white; }
+        .hud-center { position: absolute; top: 40%; left: 50%; transform: translate(-50%,-50%); text-align: center; width: 100%; pointer-events: none; }
+        .multiplier { font-size: 80px; font-weight: 900; text-shadow: 0 0 30px rgba(0,0,0,0.8); transition: color 0.2s; }
+        .status-msg { background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 20px; display: inline-block; font-size: 14px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1); }
+
+        .history-strip { height: 40px; background: var(--panel); display: flex; align-items: center; padding: 0 10px; gap: 5px; overflow-x: auto; border-bottom: 1px solid #333; }
+        .pill { padding: 4px 10px; font-size: 11px; font-weight: bold; border-radius: 5px; background: rgba(255,255,255,0.1); color: #ccc; flex-shrink: 0; }
+        .pill.win { color: var(--win); background: rgba(32, 191, 85, 0.15); }
+        .pill.jackpot { color: var(--accent); border: 1px solid var(--accent); box-shadow: 0 0 5px var(--accent); }
+
+        /* BET CONTROLS */
+        .controls { background: var(--panel); padding: 15px; display: flex; justify-content: center; gap: 10px; border-top: 1px solid #333; z-index: 50; }
+        .bet-box { background: #202a39; padding: 10px; border-radius: 12px; border: 1px solid #333; display: flex; gap: 10px; align-items: center; width: 100%; max-width: 450px; }
+        
+        .input-group { flex: 1; display: flex; background: #0f1923; border-radius: 8px; border: 1px solid #444; padding: 2px; }
+        .qt-btn { width: 40px; border: none; background: transparent; color: white; font-size: 20px; cursor: pointer; }
+        .amt-inp { flex: 1; background: transparent; border: none; color: white; text-align: center; font-size: 18px; font-weight: bold; width: 50px; }
+        
+        .action-btn { width: 120px; height: 60px; border: none; border-radius: 8px; font-size: 18px; font-weight: 900; color: white; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: 0.1s; box-shadow: 0 5px 0 rgba(0,0,0,0.3); }
+        .btn-green { background: #238636; box-shadow: 0 5px 0 #165c24; }
+        .btn-green:active { transform: translateY(3px); box-shadow: none; }
+        .btn-red { background: #c0392b; box-shadow: 0 5px 0 #96281b; }
+        .btn-orange { background: #f39c12; color: #000; box-shadow: 0 5px 0 #d35400; }
+
+        /* MODALS (Login / Wallet) */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 5000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+        .modal-card { background: #18222d; padding: 30px; border-radius: 15px; width: 90%; max-width: 400px; border: 1px solid #333; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
+        .m-inp { width: 100%; padding: 15px; margin: 10px 0; background: #0f1923; border: 1px solid #444; color: white; border-radius: 8px; text-align: center; font-size: 16px; font-weight: bold; }
+        .m-btn { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: 900; font-size: 16px; cursor: pointer; color: white; margin-top: 10px; }
+        .link { color: #888; font-size: 12px; margin-top: 15px; cursor: pointer; text-decoration: underline; }
+
+        /* WALLET TABS */
+        .tabs { display: flex; border-bottom: 1px solid #444; margin-bottom: 20px; }
+        .tab { flex: 1; padding: 10px; cursor: pointer; color: #888; font-weight: bold; font-size: 14px; }
+        .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .h-row { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #333; font-size: 12px; }
+
     </style>
 </head>
 <body>
 
-    <div id="auth-screen" class="modal">
-        <div class="box">
-            <h2 class="logo">AVIATOR</h2>
-            <div id="login-div">
-                <input id="l-u" class="inp" placeholder="Username">
-                <input id="l-p" class="inp" type="password" placeholder="Password">
-                <button class="btn btn-g" onclick="login()">LOGIN</button>
-                <p style="font-size:12px; margin-top:10px; cursor:pointer;" onclick="toggleAuth('reg')">Create Account</p>
+    <div id="auth-modal" class="modal-overlay" style="display:flex;">
+        <div class="modal-card">
+            <h1 style="color:var(--accent); font-style:italic; margin-bottom:20px;">AVIATOR PRO</h1>
+            
+            <div id="login-form">
+                <input id="l-u" class="m-inp" placeholder="Username">
+                <input id="l-p" class="m-inp" type="password" placeholder="Password">
+                <button class="m-btn" style="background:#238636;" onclick="login()">LOGIN</button>
+                <div class="link" onclick="toggleAuth('reg')">New here? Create Account</div>
             </div>
-            <div id="reg-div" style="display:none;">
-                <input id="r-u" class="inp" placeholder="New Username">
-                <input id="r-p" class="inp" type="password" placeholder="New Password">
-                <button class="btn btn-b" onclick="register()">REGISTER</button>
-                <p style="font-size:12px; margin-top:10px; cursor:pointer;" onclick="toggleAuth('log')">Back to Login</p>
+
+            <div id="reg-form" style="display:none;">
+                <input id="r-u" class="m-inp" placeholder="New Username">
+                <input id="r-p" class="m-inp" type="password" placeholder="New Password">
+                <button class="m-btn" style="background:#2980b9;" onclick="register()">REGISTER (Get Bonus)</button>
+                <div class="link" onclick="toggleAuth('log')">Back to Login</div>
             </div>
+            <p id="auth-msg" style="color:red; font-size:12px; margin-top:10px;"></p>
         </div>
     </div>
 
-    <div id="wallet-screen" class="modal" style="display:none;">
-        <div class="box">
-            <div style="text-align:right; font-size:20px; cursor:pointer;" onclick="toggleWallet(false)">&times;</div>
+    <div id="wallet-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div style="text-align:right; font-size:24px; cursor:pointer;" onclick="toggleWallet(false)">&times;</div>
             
-            <div class="w-tabs">
-                <div class="w-tab active" onclick="switchTab('dep')">DEPOSIT</div>
-                <div class="w-tab" onclick="switchTab('wit')">WITHDRAW</div>
-                <div class="w-tab" onclick="switchTab('his')">HISTORY</div>
+            <div class="tabs">
+                <div class="tab active" onclick="setTab('dep')">DEPOSIT</div>
+                <div class="tab" onclick="setTab('wit')">WITHDRAW</div>
+                <div class="tab" onclick="setTab('his')">HISTORY</div>
             </div>
 
-            <div id="tab-dep" class="w-content active">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=9799548201@ybl&pn=AviatorGame" style="background:white; padding:5px; border-radius:5px;">
-                <p style="font-size:12px; margin:10px 0;">UPI: <strong>9799548201@ybl</strong></p>
-                <input id="d-amt" type="number" class="inp" placeholder="Amount">
-                <input id="d-utr" class="inp" placeholder="UTR Number">
-                <button class="btn btn-g" onclick="reqDeposit()">SUBMIT REQUEST</button>
+            <div id="view-dep" class="tab-content active">
+                <div style="background:white; padding:10px; width:150px; margin:0 auto; border-radius:10px;">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=9799548201@ybl&pn=AviatorGame" width="100%">
+                </div>
+                <p style="margin:10px 0; font-size:12px;">UPI: <strong style="color:white;">9799548201@ybl</strong></p>
+                <input id="d-amt" type="number" class="m-inp" placeholder="Amount (e.g. 500)">
+                <input id="d-utr" class="m-inp" placeholder="UTR Number (12 Digit)">
+                <button class="m-btn" style="background:#238636;" onclick="reqDep()">SUBMIT REQUEST</button>
             </div>
 
-            <div id="tab-wit" class="w-content">
-                <p style="font-size:12px; color:#aaa;">Withdraw Winnings to Bank/UPI</p>
-                <input id="w-amt" type="number" class="inp" placeholder="Amount (Min 100)">
-                <input id="w-upi" class="inp" placeholder="Your UPI ID (e.g. name@okicici)">
-                <button class="btn btn-r" onclick="reqWithdraw()">REQUEST WITHDRAW</button>
+            <div id="view-wit" class="tab-content">
+                <p style="color:#aaa; font-size:12px; margin-bottom:10px;">Withdraw winnings to your bank.</p>
+                <input id="w-amt" type="number" class="m-inp" placeholder="Amount (Min 100)">
+                <input id="w-upi" class="m-inp" placeholder="Your UPI ID">
+                <button class="m-btn" style="background:#c0392b;" onclick="reqWit()">WITHDRAW MONEY</button>
             </div>
 
-            <div id="tab-his" class="w-content">
-                <div id="hist-list" class="h-list">Loading...</div>
+            <div id="view-his" class="tab-content">
+                <div id="tx-list" style="height:250px; overflow-y:auto; text-align:left;">Loading...</div>
             </div>
         </div>
     </div>
 
     <div class="header">
-        <div class="logo">AVIATOR</div>
-        <div class="wallet" onclick="toggleWallet(true)">
-            ₹ <span id="bal">0.00</span> <span>+</span>
+        <div class="logo"><i class="fas fa-plane"></i> AVIATOR</div>
+        <div style="display:flex; gap:15px; align-items:center;">
+            <div class="wallet-btn" onclick="toggleWallet(true)">
+                ₹ <span id="balance">0.00</span> <i class="fas fa-plus-circle"></i>
+            </div>
+            <i class="fas fa-bars menu-icon"></i>
         </div>
     </div>
 
-    <div class="game">
-        <canvas id="cvs"></canvas>
-        <div class="hud">
-            <div class="mult" id="mult">1.00x</div>
-            <div id="status" style="background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:10px; font-size:12px;">WAITING</div>
+    <div class="container">
+        <div class="sidebar">
+            <div style="padding:10px; background:#18222d; border-bottom:1px solid #333; font-weight:bold; font-size:12px;">ALL BETS</div>
+            <div id="bot-list" style="flex:1; overflow-y:auto;"></div>
         </div>
-        <div class="controls">
-            <input id="bet-amt" type="number" class="bet-inp" value="10">
-            <button id="act-btn" class="act-btn btn-g" onclick="action()">BET</button>
+
+        <div class="game-stage">
+            <div class="history-strip" id="hist-bar"></div>
+            
+            <div class="canvas-container">
+                <canvas id="gameCvs"></canvas>
+                <div class="hud-center">
+                    <div id="status" class="status-msg">CONNECTING...</div>
+                    <div id="mult" class="multiplier">1.00x</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="bet-box">
+                    <div class="input-group">
+                        <button class="qt-btn" onclick="adjBet(-10)">−</button>
+                        <input id="bet-amt" class="amt-inp" value="10">
+                        <button class="qt-btn" onclick="adjBet(10)">+</button>
+                    </div>
+                    <button id="main-btn" class="action-btn btn-green" onclick="action()">BET</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
+        // --- CORE LOGIC ---
         const socket = io();
         let user=null, bal=0, state="IDLE", mult=1.00, active=false, betVal=0;
-
-        // --- AUTH ---
-        function toggleAuth(mode) { 
-            document.getElementById('login-div').style.display=mode==='log'?'block':'none'; 
-            document.getElementById('reg-div').style.display=mode==='reg'?'block':'none'; 
-        }
-        function login(){ let u=document.getElementById('l-u').value, p=document.getElementById('l-p').value; if(u&&p) socket.emit('login',{username:u,password:p}); }
-        function register(){ let u=document.getElementById('r-u').value, p=document.getElementById('r-p').value; if(u&&p) socket.emit('register',{username:u,password:p}); }
         
-        socket.on('login-success', d=>{ user=d.username; bal=d.balance; updateBal(); document.getElementById('auth-screen').style.display='none'; resize(); draw(); });
+        // --- AUTH ---
+        function toggleAuth(m){ 
+            document.getElementById('login-form').style.display=m==='log'?'block':'none';
+            document.getElementById('reg-form').style.display=m==='reg'?'block':'none';
+            document.getElementById('auth-msg').innerText="";
+        }
+        function login(){ 
+            let u=document.getElementById('l-u').value, p=document.getElementById('l-p').value;
+            if(u&&p) socket.emit('auth-login',{username:u,password:p});
+        }
+        function register(){
+            let u=document.getElementById('r-u').value, p=document.getElementById('r-p').value;
+            if(u&&p) socket.emit('auth-register',{username:u,password:p});
+        }
+        socket.on('auth-success', d=>{
+            user=d.username; bal=d.balance; updateBal();
+            document.getElementById('auth-modal').style.display='none';
+            resize(); draw();
+        });
+        socket.on('auth-failed', m=>document.getElementById('auth-msg').innerText=m);
 
         // --- WALLET ---
-        function toggleWallet(s){ 
-            document.getElementById('wallet-screen').style.display=s?'flex':'none'; 
-            if(s) socket.emit('get-transactions', user);
-        }
-        function switchTab(t){
-            document.querySelectorAll('.w-tab').forEach(e=>e.classList.remove('active'));
-            document.querySelectorAll('.w-content').forEach(e=>e.classList.remove('active'));
+        function toggleWallet(s){ document.getElementById('wallet-modal').style.display=s?'flex':'none'; if(s) setTab('dep'); }
+        function setTab(t){
+            document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));
             event.target.classList.add('active');
-            document.getElementById('tab-'+t).classList.add('active');
+            document.getElementById('view-'+t).classList.add('active');
+            if(t==='his') socket.emit('get-my-history', user);
         }
-        function reqDeposit(){
+        function reqDep(){
             let a=document.getElementById('d-amt').value, u=document.getElementById('d-utr').value;
-            if(a&&u){ socket.emit('deposit-request',{username:user,amount:a,utr:u}); alert("Deposit Pending!"); toggleWallet(false); }
+            if(a&&u){ socket.emit('req-deposit',{username:user,amount:a,utr:u}); alert("Deposit Request Sent!"); toggleWallet(false); }
         }
-        function reqWithdraw(){
+        function reqWit(){
             let a=document.getElementById('w-amt').value, u=document.getElementById('w-upi').value;
-            if(a&&u){ socket.emit('withdraw-request',{username:user,amount:a,upi:u}); toggleWallet(false); }
+            if(a&&u){ socket.emit('req-withdraw',{username:user,amount:a,upi:u}); toggleWallet(false); }
         }
-        socket.on('withdraw-success', m=>alert(m));
-        socket.on('withdraw-error', m=>alert(m));
-        
-        socket.on('transaction-history', list=>{
-            let h=document.getElementById('hist-list'); h.innerHTML="";
+        socket.on('user-history-data', list=>{
+            let d=document.getElementById('tx-list'); d.innerHTML="";
             list.forEach(t=>{
-                let c=t.status==='SUCCESS'?'st-SUCCESS':t.status==='REJECTED'?'st-REJECTED':'st-PENDING';
-                h.innerHTML+=`<div class="h-item">
-                    <span>${t.type} ₹${t.amount}</span>
-                    <span class="${c}">${t.status}</span>
-                </div>`;
+                let c = t.status==='APPROVED'?'#20bf55':t.status==='REJECTED'?'#eb4d4b':'#f1c40f';
+                d.innerHTML += `<div class="h-row"><span>${t.type} ₹${t.amount}</span><span style="color:${c}">${t.status}</span></div>`;
+            });
+        });
+        socket.on('msg', m=>alert(m));
+
+        // --- GAME PLAY ---
+        function updateBal(){ document.getElementById('balance').innerText=bal.toFixed(2); }
+        socket.on('balance-update', b=>{ bal=b; updateBal(); });
+        socket.on('force-balance', d=>{ if(d.username===user){bal=d.balance; updateBal(); alert("Wallet Updated!"); }});
+
+        socket.on('history-update', h=>{
+            let b=document.getElementById('hist-bar'); b.innerHTML="";
+            h.forEach(v=>{
+                let d=document.createElement('div'); d.className=v>=10?"pill jackpot":v>=2?"pill win":"pill";
+                d.innerText=v.toFixed(2)+"x"; b.appendChild(d);
             });
         });
 
-        // --- GAME ---
-        function updateBal(){ document.getElementById('bal').innerText=bal.toFixed(2); }
-        socket.on('balance-update', b=>{ bal=b; updateBal(); });
-        socket.on('force-balance-update', d=>{ if(d.username===user){ bal=d.balance; updateBal(); alert("Wallet Balance Updated!"); }});
+        socket.on('state-change', d=>{
+            state=d.state;
+            if(state==='IDLE'){
+                resetUI();
+                document.getElementById('status').innerText=`NEXT ROUND: ${d.countdown}s`;
+                document.getElementById('status').style.display='inline-block';
+            } else {
+                document.getElementById('status').style.display='none';
+                if(active) updateBtn("CASH OUT", "btn-orange");
+                else disableBtn();
+            }
+        });
 
-        socket.on('tick', m=>{ mult=m; document.getElementById('mult').innerText=m.toFixed(2)+"x"; draw(); if(active) updateBtn(`CASH OUT\n₹${(betVal*mult).toFixed(0)}`, 'btn-b'); });
-        socket.on('state-change', d=>{ state=d.state; if(state==='IDLE'){ resetUI(); document.getElementById('status').innerText="NEXT: "+d.countdown+"s"; } else { document.getElementById('status').style.display='none'; if(active) updateBtn("CASH OUT", 'btn-b'); else disableBtn(); } });
-        socket.on('crash', d=>{ document.getElementById('mult').style.color='#e74c3c'; document.getElementById('status').innerText=`FLEW @ ${d.multiplier}x`; document.getElementById('status').style.display='block'; if(active){ active=false; updateBtn("LOST", 'btn-r'); } setTimeout(()=>{if(!active) resetUI();}, 2000); });
+        socket.on('timer-update', t=> { if(state==='IDLE') document.getElementById('status').innerText=`STARTING IN ${t}s`; });
+
+        socket.on('tick', m=>{
+            mult=m; document.getElementById('mult').innerText=m.toFixed(2)+"x";
+            if(active) document.getElementById('main-btn').innerHTML = `CASH OUT<br><small>₹${(betVal*m).toFixed(0)}</small>`;
+            draw();
+        });
+
+        socket.on('crash', d=>{
+            document.getElementById('mult').style.color='#eb4d4b';
+            document.getElementById('status').innerText=`FLEW AWAY @ ${d.multiplier}x`;
+            document.getElementById('status').style.display='inline-block';
+            if(active){ active=false; updateBtn("LOST", "btn-red"); }
+            setTimeout(()=>{ if(!active) resetUI(); }, 2000);
+        });
 
         function action(){
             if(state==='IDLE' && !active){
                 let v=parseInt(document.getElementById('bet-amt').value);
-                if(v<=bal){ active=true; betVal=v; socket.emit('place-bet',{username:user,amount:v}); updateBtn("WAITING", 'btn-r'); } else alert("Low Balance");
+                if(v<=bal){ active=true; betVal=v; socket.emit('place-bet',{username:user,amount:v}); updateBtn("WAITING...", "btn-red"); }
+                else alert("Low Balance!");
             } else if(state==='FLYING' && active){
-                active=false; socket.emit('cash-out',{username:user,winAmount:betVal*mult}); updateBtn("WON", 'btn-g');
+                active=false; socket.emit('cash-out',{username:user,winAmount:betVal*mult}); updateBtn("WON", "btn-green");
             }
         }
 
-        function resetUI(){ document.getElementById('mult').style.color='white'; document.getElementById('mult').innerText="1.00x"; if(!active) updateBtn("BET", 'btn-g'); document.getElementById('act-btn').disabled=false; document.getElementById('act-btn').style.opacity=1; }
-        function updateBtn(t,c){ let b=document.getElementById('act-btn'); b.innerText=t; b.className=`act-btn ${c}`; }
-        function disableBtn(){ let b=document.getElementById('act-btn'); b.disabled=true; b.style.opacity=0.5; }
+        function adjBet(v){ let e=document.getElementById('bet-amt'); e.value=Math.max(10, parseInt(e.value)+v); }
+        function resetUI(){ 
+            document.getElementById('mult').style.color='white'; 
+            document.getElementById('mult').innerText="1.00x";
+            if(!active) updateBtn("BET", "btn-green");
+            document.getElementById('main-btn').disabled=false;
+            document.getElementById('main-btn').style.opacity=1;
+        }
+        function updateBtn(txt, cls){ let b=document.getElementById('main-btn'); b.innerHTML=txt; b.className=`action-btn ${cls}`; }
+        function disableBtn(){ let b=document.getElementById('main-btn'); b.disabled=true; b.style.opacity=0.5; b.className="action-btn"; b.style.background="#444"; b.innerText="WAIT"; }
 
-        // --- CANVAS ---
-        const cvs=document.getElementById('cvs'), ctx=cvs.getContext('2d');
+        // --- CANVAS GRAPHICS ---
+        const cvs=document.getElementById('gameCvs'), ctx=cvs.getContext('2d');
         function resize(){ cvs.width=cvs.parentElement.clientWidth; cvs.height=cvs.parentElement.clientHeight; }
-        function draw(){ ctx.clearRect(0,0,cvs.width,cvs.height); if(state==='CRASHED')return; let p=(mult-1)/3.5; if(p>1)p=1; let x=50+p*(cvs.width-100), y=cvs.height-50-p*(cvs.height-100); ctx.beginPath(); ctx.moveTo(0,cvs.height); ctx.quadraticCurveTo(x/2,cvs.height,x,y); ctx.strokeStyle='#e91e63'; ctx.lineWidth=3; ctx.stroke(); ctx.fillStyle='rgba(233,30,99,0.3)'; ctx.fill(); ctx.beginPath(); ctx.arc(x,y,5,0,7); ctx.fillStyle='white'; ctx.fill(); }
         window.onresize=resize;
+        
+        function draw(){
+            ctx.clearRect(0,0,cvs.width,cvs.height);
+            if(state==='CRASHED') return;
+
+            // Grid
+            ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+            for(let i=0;i<cvs.width;i+=60){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,cvs.height);ctx.stroke(); }
+            for(let i=0;i<cvs.height;i+=60){ ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(cvs.width,i);ctx.stroke(); }
+
+            // Curve
+            let p=(mult-1)/3.5; if(p>1)p=1;
+            let x=60 + p*(cvs.width-120);
+            let y=cvs.height - 60 - p*(cvs.height-120);
+
+            ctx.beginPath(); ctx.moveTo(0, cvs.height);
+            ctx.quadraticCurveTo(x/2, cvs.height, x, y);
+            let grad=ctx.createLinearGradient(0,cvs.height, x, y);
+            grad.addColorStop(0, "rgba(255, 46, 99, 0)");
+            grad.addColorStop(1, "rgba(255, 46, 99, 0.4)");
+            ctx.fillStyle=grad; ctx.fill();
+            ctx.strokeStyle="#ff2e63"; ctx.lineWidth=4; ctx.stroke();
+
+            // Plane (Simplified Rocket Shape)
+            ctx.save(); ctx.translate(x, y); ctx.rotate(-0.4);
+            ctx.fillStyle="#ff2e63"; ctx.beginPath(); ctx.ellipse(0,0,30,10,0,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle="#a3001b"; ctx.beginPath(); ctx.moveTo(-10,-5);ctx.lineTo(-25,-15);ctx.lineTo(-20,-5);ctx.fill(); ctx.beginPath(); ctx.moveTo(-10,5);ctx.lineTo(-25,15);ctx.lineTo(-20,5);ctx.fill();
+            ctx.fillStyle="white"; ctx.beginPath(); ctx.arc(10,-3,3,0,Math.PI*2); ctx.fill();
+            
+            // Fire Effect
+            if(state==='FLYING'){
+                ctx.fillStyle="#f1c40f"; ctx.beginPath(); ctx.moveTo(-30,0); 
+                ctx.lineTo(-45-Math.random()*15, 5); ctx.lineTo(-40,0); ctx.lineTo(-45-Math.random()*15, -5); ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // --- FAKE BOTS ---
+        const names=["Vikram","Amit","Rahul","Sneha","Priya","Arjun","Rohan"];
+        setInterval(()=>{
+            if(state!=='IDLE')return;
+            let d=document.getElementById('bot-list'); d.innerHTML="";
+            for(let i=0;i<12;i++){
+                d.innerHTML+=`<div style="padding:8px 15px; border-bottom:1px solid #222; font-size:13px; display:flex; justify-content:space-between;">
+                    <span style="color:#aaa;">👤 ${names[i%names.length]}</span>
+                    <span style="color:#20bf55;">₹${(Math.floor(Math.random()*20)+1)*100}</span>
+                </div>`;
+            }
+        },4000);
     </script>
 </body>
 </html>
