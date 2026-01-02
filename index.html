@@ -3,489 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aviator Ultra - Premium</title>
-    
+    <title>Aviator Pro - Real Money</title>
     <script src="/socket.io/socket.io.js"></script>
-    
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
-    
     <style>
-        /* ============================
-           1. THEME & RESET
-           ============================ */
-        :root {
-            --bg-dark: #0f1923;
-            --bg-panel: #18222d;
-            --bg-card: #202a39;
-            --accent: #e91e63;
-            --win: #2ea043;
-            --text-main: #eceff1;
-            --text-muted: #90a4ae;
-            --border: #2c3b4e;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; outline: none; -webkit-tap-highlight-color: transparent; }
-        body { background: var(--bg-dark); color: var(--text-main); font-family: 'Roboto', sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
-
-        /* ============================
-           2. HEADER SECTION
-           ============================ */
-        .header { 
-            height: 60px; background: var(--bg-panel); display: flex; align-items: center; 
-            justify-content: space-between; padding: 0 15px; border-bottom: 1px solid var(--border); 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 100;
-        }
-        .brand { font-size: 24px; font-weight: 900; color: var(--accent); font-style: italic; display: flex; align-items: center; gap: 5px; }
-        .brand i { font-size: 18px; }
+        body { background: #0f1923; color: white; font-family: sans-serif; margin: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
         
-        .header-controls { display: flex; align-items: center; gap: 15px; }
+        /* HEADER */
+        .header { height: 60px; background: #18222d; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 1px solid #333; }
+        .logo { color: #e91e63; font-weight: 900; font-size: 22px; font-style: italic; }
+        .wallet { background: #238636; padding: 5px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; }
         
-        .wallet-pill { 
-            background: #238636; padding: 6px 14px; border-radius: 50px; font-weight: bold; 
-            font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer; 
-            border: 1px solid rgba(255,255,255,0.2); transition: 0.2s;
-        }
-        .wallet-pill:active { transform: scale(0.95); }
-        .plus-icon { background: rgba(255,255,255,0.2); width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; }
+        /* AUTH MODAL */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 5000; display: flex; justify-content: center; align-items: center; }
+        .box { background: #18222d; padding: 30px; border-radius: 15px; text-align: center; width: 90%; max-width: 350px; border: 1px solid #333; }
+        .inp { width: 100%; padding: 12px; margin: 10px 0; background: #0f1923; border: 1px solid #444; color: white; border-radius: 5px; text-align: center; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: white; }
+        .btn-g { background: #238636; } .btn-b { background: #2980b9; } .btn-r { background: #e74c3c; }
 
-        .menu-btn, .chat-toggle { font-size: 20px; color: var(--text-muted); cursor: pointer; }
+        /* WALLET MODAL (TABS) */
+        .w-tabs { display: flex; border-bottom: 1px solid #444; margin-bottom: 15px; }
+        .w-tab { flex: 1; padding: 10px; cursor: pointer; color: #888; font-size: 14px; font-weight: bold; }
+        .w-tab.active { color: #e91e63; border-bottom: 2px solid #e91e63; }
+        .w-content { display: none; }
+        .w-content.active { display: block; }
         
-        /* ============================
-           3. MAIN LAYOUT (GRID)
-           ============================ */
-        .main-container { display: flex; height: calc(100vh - 60px); width: 100%; }
+        /* HISTORY LIST */
+        .h-list { max-height: 200px; overflow-y: auto; text-align: left; }
+        .h-item { font-size: 12px; padding: 8px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; }
+        .st-PENDING { color: #f1c40f; } .st-SUCCESS { color: #2ecc71; } .st-REJECTED { color: #e74c3c; }
+
+        /* GAME AREA */
+        .game { flex: 1; position: relative; display: flex; flex-direction: column; background: #000; }
+        canvas { width: 100%; height: 100%; }
+        .hud { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+        .mult { font-size: 70px; font-weight: 900; }
         
-        /* Left Sidebar (Bets) */
-        .sidebar-left { width: 300px; background: var(--bg-dark); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
-        /* Right Sidebar (Chat) */
-        .sidebar-right { width: 300px; background: var(--bg-dark); border-left: 1px solid var(--border); display: flex; flex-direction: column; }
-        /* Center (Game) */
-        .stage-area { flex: 1; display: flex; flex-direction: column; position: relative; background: #000; }
-
-        /* Mobile Responsive */
-        @media (max-width: 1000px) { 
-            .sidebar-left, .sidebar-right { display: none !important; } 
-        }
-
-        /* Tabs inside Sidebar */
-        .tabs { display: flex; background: var(--bg-panel); border-bottom: 1px solid var(--border); }
-        .tab { flex: 1; padding: 12px; text-align: center; font-size: 12px; font-weight: bold; color: var(--text-muted); cursor: pointer; text-transform: uppercase; }
-        .tab.active { color: white; border-bottom: 2px solid var(--accent); background: rgba(233,30,99,0.05); }
-
-        .scroll-content { flex: 1; overflow-y: auto; padding: 0; }
-        .list-item { display: flex; justify-content: space-between; padding: 8px 15px; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 13px; }
-        .list-item span { display: flex; align-items: center; gap: 8px; }
-        .avatar { width: 24px; height: 24px; background: #333; border-radius: 50%; display: grid; place-items: center; font-size: 10px; color: #888; }
-        
-        /* Chat Messages */
-        .chat-msg { padding: 8px 15px; font-size: 13px; line-height: 1.4; border-bottom: 1px solid rgba(255,255,255,0.03); }
-        .chat-user { color: #58a6ff; font-weight: bold; font-size: 12px; margin-right: 5px; }
-        .chat-input-area { padding: 10px; background: var(--bg-panel); border-top: 1px solid var(--border); display: flex; gap: 5px; }
-        .chat-input { flex: 1; background: #0f1923; border: 1px solid var(--border); padding: 8px; border-radius: 5px; color: white; }
-
-        /* ============================
-           4. GAME CANVAS & HISTORY
-           ============================ */
-        .history-bar { height: 40px; background: var(--bg-panel); display: flex; align-items: center; padding: 0 10px; gap: 6px; overflow-x: auto; border-bottom: 1px solid var(--border); }
-        .pill { padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; background: rgba(255,255,255,0.05); color: #ccc; flex-shrink: 0; border: 1px solid transparent; }
-        .pill.win { color: var(--win); background: rgba(46, 204, 113, 0.1); border-color: rgba(46, 204, 113, 0.2); }
-        .pill.jackpot { color: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px rgba(233,30,99,0.3); }
-
-        .canvas-wrapper { flex: 1; position: relative; overflow: hidden; }
-        canvas { width: 100%; height: 100%; display: block; }
-
-        .center-hud { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 100%; pointer-events: none; }
-        .big-multiplier { font-size: 80px; font-weight: 900; color: white; text-shadow: 0 0 40px rgba(0,0,0,0.8); letter-spacing: -2px; }
-        .status-pill { background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; letter-spacing: 1px; color: #ccc; display: inline-block; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1); }
-
-        /* ============================
-           5. BETTING CONTROLS
-           ============================ */
-        .controls-area { 
-            background: var(--bg-panel); border-top: 1px solid var(--border); padding: 15px; 
-            display: flex; justify-content: center; gap: 15px; position: relative; z-index: 50;
-        }
-
-        .bet-panel { 
-            width: 100%; max-width: 450px; background: var(--bg-card); border-radius: 16px; 
-            padding: 5px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-        
-        /* Bet Tabs (Bet / Auto) */
-        .bet-tabs { display: flex; margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .bt-tab { flex: 1; text-align: center; padding: 8px; font-size: 12px; color: var(--text-muted); cursor: pointer; font-weight: bold; border-radius: 12px 12px 0 0; }
-        .bt-tab.active { background: rgba(255,255,255,0.05); color: white; }
-
-        .bet-body { padding: 10px; display: flex; gap: 10px; align-items: center; }
-        .input-group { flex: 1; display: flex; flex-direction: column; gap: 5px; }
-        
-        .stepper { display: flex; background: #0f1923; border-radius: 8px; padding: 4px; border: 1px solid var(--border); }
-        .step-btn { width: 35px; height: 35px; background: transparent; border: none; color: white; font-size: 18px; cursor: pointer; }
-        .bet-input { flex: 1; background: transparent; border: none; color: white; text-align: center; font-size: 18px; font-weight: bold; width: 50px; }
-
-        .big-action-btn { 
-            width: 140px; height: 70px; border-radius: 12px; border: none; font-size: 18px; 
-            font-weight: 900; color: white; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.2); 
-            display: flex; flex-direction: column; justify-content: center; align-items: center; line-height: 1.2;
-        }
-        .btn-green { background: linear-gradient(180deg, #2ea043, #1f6f2e); box-shadow: 0 4px 0 #13461f; }
-        .btn-green:active { transform: translateY(2px); box-shadow: none; }
-        .btn-red { background: linear-gradient(180deg, #ff4757, #c0392b); box-shadow: 0 4px 0 #8b251d; }
-        .btn-orange { background: linear-gradient(180deg, #ffa502, #e67e22); color: black; box-shadow: 0 4px 0 #b3621a; }
-
-        /* Auto Cashout Row (Visual) */
-        .auto-row { display: flex; justify-content: space-between; padding: 0 5px; margin-top: 5px; align-items: center; font-size: 11px; color: #888; }
-        .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--accent); }
-        input:checked + .slider:before { transform: translateX(16px); }
-
-        /* ============================
-           6. MODALS & POPUPS
-           ============================ */
-        .modal-overlay { 
-            position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 5000; 
-            backdrop-filter: blur(8px); display: none; justify-content: center; align-items: center; 
-        }
-        .modal-card { 
-            background: #18222d; width: 90%; max-width: 400px; padding: 30px; border-radius: 20px; 
-            border: 1px solid var(--border); text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.8); 
-            animation: zoomIn 0.3s ease; position: relative;
-        }
-        @keyframes zoomIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
-        .auth-logo { font-size: 40px; color: var(--accent); font-weight: 900; font-style: italic; margin-bottom: 20px; }
-        .modal-inp { width: 100%; padding: 15px; margin-bottom: 12px; background: #0f1923; border: 1px solid var(--border); border-radius: 10px; color: white; text-align: center; font-size: 16px; font-weight: bold; }
-        .modal-btn { width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: 900; font-size: 16px; cursor: pointer; margin-top: 10px; }
-        .toggle-link { margin-top: 15px; font-size: 13px; color: var(--text-muted); cursor: pointer; text-decoration: underline; }
-        .close-icon { position: absolute; top: 15px; right: 15px; font-size: 20px; color: #666; cursor: pointer; }
-
-        /* Provably Fair Badge */
-        .fairness-badge { position: absolute; bottom: 10px; right: 10px; font-size: 10px; color: #444; display: flex; align-items: center; gap: 5px; cursor: pointer; }
-        .fairness-badge i { color: var(--win); }
-
-        /* Menu Drawer */
-        .drawer { position: fixed; top: 0; right: -250px; width: 250px; height: 100%; background: #18222d; z-index: 2000; transition: 0.3s; padding: 20px; border-left: 1px solid var(--border); }
-        .drawer.open { right: 0; }
-        .drawer-item { padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 14px; color: #ccc; cursor: pointer; display: flex; align-items: center; gap: 10px; }
-
+        .controls { background: #18222d; padding: 15px; display: flex; gap: 10px; justify-content: center; border-top: 1px solid #333; }
+        .bet-inp { width: 80px; text-align: center; font-size: 18px; font-weight: bold; background: #0f1923; color: white; border: 1px solid #444; border-radius: 5px; }
+        .act-btn { width: 120px; height: 60px; border-radius: 10px; font-size: 20px; font-weight: 900; border: none; cursor: pointer; color: white; }
     </style>
 </head>
 <body>
 
-    <div id="auth-modal" class="modal-overlay" style="display: flex;"> <div class="modal-card">
-            <div class="auth-logo">AVIATOR <span style="font-size:12px; background:var(--accent); color:white; padding:2px 6px; border-radius:4px; font-style:normal;">MAX</span></div>
-            
-            <div id="login-box">
-                <input type="text" id="l-user" class="modal-inp" placeholder="Username">
-                <input type="password" id="l-pass" class="modal-inp" placeholder="Password">
-                <button class="modal-btn btn-green" onclick="doLogin()">LOGIN</button>
-                <div class="toggle-link" onclick="toggleAuth('reg')">New Player? Create Account</div>
+    <div id="auth-screen" class="modal">
+        <div class="box">
+            <h2 class="logo">AVIATOR</h2>
+            <div id="login-div">
+                <input id="l-u" class="inp" placeholder="Username">
+                <input id="l-p" class="inp" type="password" placeholder="Password">
+                <button class="btn btn-g" onclick="login()">LOGIN</button>
+                <p style="font-size:12px; margin-top:10px; cursor:pointer;" onclick="toggleAuth('reg')">Create Account</p>
             </div>
-
-            <div id="reg-box" style="display:none;">
-                <input type="text" id="r-user" class="modal-inp" placeholder="Set Username">
-                <input type="password" id="r-pass" class="modal-inp" placeholder="Set Password">
-                <button class="modal-btn" style="background:#2980b9; color:white;" onclick="doRegister()">REGISTER & GET ₹50</button>
-                <div class="toggle-link" onclick="toggleAuth('log')">Back to Login</div>
+            <div id="reg-div" style="display:none;">
+                <input id="r-u" class="inp" placeholder="New Username">
+                <input id="r-p" class="inp" type="password" placeholder="New Password">
+                <button class="btn btn-b" onclick="register()">REGISTER</button>
+                <p style="font-size:12px; margin-top:10px; cursor:pointer;" onclick="toggleAuth('log')">Back to Login</p>
             </div>
-            <div id="auth-err" style="color:red; font-size:12px; margin-top:10px;"></div>
         </div>
     </div>
 
-    <div id="deposit-modal" class="modal-overlay">
-        <div class="modal-card">
-            <div class="close-icon" onclick="toggleDeposit(false)">&times;</div>
-            <h2 style="color:var(--accent); margin-bottom:5px;">ADD FUNDS</h2>
-            <p style="color:#888; font-size:12px;">Scan QR to Pay Instantly</p>
+    <div id="wallet-screen" class="modal" style="display:none;">
+        <div class="box">
+            <div style="text-align:right; font-size:20px; cursor:pointer;" onclick="toggleWallet(false)">&times;</div>
             
-            <div style="background:white; width:180px; height:180px; margin:20px auto; border-radius:10px; padding:10px;">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=upi://pay?pa=9799548201@ybl&pn=AviatorGame" width="100%">
-            </div>
-            
-            <div style="background:#0f1923; padding:10px; border-radius:8px; font-size:13px; margin-bottom:15px; border:1px solid #333;">
-                UPI: <strong style="color:white; user-select:text;">9799548201@ybl</strong>
+            <div class="w-tabs">
+                <div class="w-tab active" onclick="switchTab('dep')">DEPOSIT</div>
+                <div class="w-tab" onclick="switchTab('wit')">WITHDRAW</div>
+                <div class="w-tab" onclick="switchTab('his')">HISTORY</div>
             </div>
 
-            <input type="number" id="dep-amt" class="modal-inp" placeholder="Amount (Min ₹100)">
-            <input type="text" id="dep-utr" class="modal-inp" placeholder="UTR / Ref Number (12 Digit)">
-            <button class="modal-btn btn-green" onclick="submitDeposit()">SUBMIT REQUEST</button>
+            <div id="tab-dep" class="w-content active">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=9799548201@ybl&pn=AviatorGame" style="background:white; padding:5px; border-radius:5px;">
+                <p style="font-size:12px; margin:10px 0;">UPI: <strong>9799548201@ybl</strong></p>
+                <input id="d-amt" type="number" class="inp" placeholder="Amount">
+                <input id="d-utr" class="inp" placeholder="UTR Number">
+                <button class="btn btn-g" onclick="reqDeposit()">SUBMIT REQUEST</button>
+            </div>
+
+            <div id="tab-wit" class="w-content">
+                <p style="font-size:12px; color:#aaa;">Withdraw Winnings to Bank/UPI</p>
+                <input id="w-amt" type="number" class="inp" placeholder="Amount (Min 100)">
+                <input id="w-upi" class="inp" placeholder="Your UPI ID (e.g. name@okicici)">
+                <button class="btn btn-r" onclick="reqWithdraw()">REQUEST WITHDRAW</button>
+            </div>
+
+            <div id="tab-his" class="w-content">
+                <div id="hist-list" class="h-list">Loading...</div>
+            </div>
         </div>
-    </div>
-
-    <div id="menu-drawer" class="drawer">
-        <div style="text-align:right; font-size:24px; cursor:pointer;" onclick="toggleMenu()">×</div>
-        <div class="drawer-item"><i class="fas fa-history"></i> Game History</div>
-        <div class="drawer-item"><i class="fas fa-shield-alt"></i> Provably Fair Settings</div>
-        <div class="drawer-item"><i class="fas fa-gamepad"></i> How to Play?</div>
-        <div class="drawer-item"><i class="fas fa-headset"></i> Customer Support</div>
-        <div class="drawer-item" style="color:red;" onclick="location.reload()"><i class="fas fa-sign-out-alt"></i> Logout</div>
     </div>
 
     <div class="header">
-        <div class="brand">
-            <i class="fas fa-plane-departure"></i> AVIATOR
-        </div>
-        <div class="header-controls">
-            <div class="wallet-pill" onclick="toggleDeposit(true)">
-                <span id="balance-el">0.00</span> ₹
-                <div class="plus-icon">+</div>
-            </div>
-            <div class="menu-btn" onclick="toggleMenu()"><i class="fas fa-bars"></i></div>
+        <div class="logo">AVIATOR</div>
+        <div class="wallet" onclick="toggleWallet(true)">
+            ₹ <span id="bal">0.00</span> <span>+</span>
         </div>
     </div>
 
-    <div class="main-container">
-        <div class="sidebar-left">
-            <div class="tabs">
-                <div class="tab active">All Bets</div>
-                <div class="tab">My Bets</div>
-                <div class="tab">Top</div>
-            </div>
-            <div class="scroll-content" id="bot-list">
-                </div>
-            <div style="padding:10px; text-align:center; font-size:11px; color:#555;">
-                <span id="active-players">0</span> Players Online
-            </div>
+    <div class="game">
+        <canvas id="cvs"></canvas>
+        <div class="hud">
+            <div class="mult" id="mult">1.00x</div>
+            <div id="status" style="background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:10px; font-size:12px;">WAITING</div>
         </div>
-
-        <div class="stage-area">
-            <div class="history-bar" id="history-bar">
-                </div>
-
-            <div class="canvas-wrapper">
-                <canvas id="gameCanvas"></canvas>
-                <div class="center-hud">
-                    <div class="status-pill" id="status-text">CONNECTING...</div>
-                    <div class="big-multiplier" id="multiplier-text">1.00x</div>
-                </div>
-                <div class="fairness-badge"><i class="fas fa-shield-alt"></i> Provably Fair</div>
-            </div>
-
-            <div class="controls-area">
-                <div class="bet-panel active">
-                    <div class="bet-tabs">
-                        <div class="bt-tab active">Bet</div>
-                        <div class="bt-tab">Auto</div>
-                    </div>
-                    <div class="bet-body">
-                        <div class="input-group">
-                            <div class="stepper">
-                                <button class="step-btn" onclick="adjBet(-10)">−</button>
-                                <input type="number" id="bet-input" class="bet-input" value="10">
-                                <button class="step-btn" onclick="adjBet(10)">+</button>
-                            </div>
-                            <div style="display:flex; gap:5px; margin-top:5px;">
-                                <div class="step-btn" style="font-size:10px; border:1px solid #444; width:100%; border-radius:4px; text-align:center; padding:2px;" onclick="setBet(100)">100</div>
-                                <div class="step-btn" style="font-size:10px; border:1px solid #444; width:100%; border-radius:4px; text-align:center; padding:2px;" onclick="setBet(500)">500</div>
-                            </div>
-                        </div>
-                        <button id="action-btn" class="big-action-btn btn-green" onclick="action()">BET</button>
-                    </div>
-                    <div class="auto-row">
-                        <span>Auto Cashout</span>
-                        <div style="display:flex; align-items:center; gap:5px;">
-                            <input type="number" value="2.00" style="width:40px; background:#111; border:none; color:white; text-align:center; border-radius:4px;">
-                            <label class="switch"><input type="checkbox"><span class="slider"></span></label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="sidebar-right">
-            <div class="tabs">
-                <div class="tab active">Live Chat</div>
-            </div>
-            <div class="scroll-content" id="chat-list" style="background:#0f1923;">
-                <div class="chat-msg"><span class="chat-user" style="color:#e91e63">Admin:</span> Welcome to Ultra Pro Max!</div>
-            </div>
-            <div class="chat-input-area">
-                <input type="text" class="chat-input" placeholder="Type message...">
-                <button style="background:#2980b9; color:white; border:none; padding:0 10px; border-radius:5px;"><i class="fas fa-paper-plane"></i></button>
-            </div>
+        <div class="controls">
+            <input id="bet-amt" type="number" class="bet-inp" value="10">
+            <button id="act-btn" class="act-btn btn-g" onclick="action()">BET</button>
         </div>
     </div>
 
     <script>
         const socket = io();
-        let user = null, bal = 0, state = "IDLE", mult = 1.00, active = false, betVal = 0;
-        let audioCtx, engineOsc;
+        let user=null, bal=0, state="IDLE", mult=1.00, active=false, betVal=0;
 
-        // AUTH
-        function toggleAuth(mode) {
-            document.getElementById('login-box').style.display = mode==='log'?'block':'none';
-            document.getElementById('reg-box').style.display = mode==='reg'?'block':'none';
-            document.getElementById('auth-err').innerText = "";
+        // --- AUTH ---
+        function toggleAuth(mode) { 
+            document.getElementById('login-div').style.display=mode==='log'?'block':'none'; 
+            document.getElementById('reg-div').style.display=mode==='reg'?'block':'none'; 
         }
-        function doLogin() {
-            let u = document.getElementById('l-user').value; let p = document.getElementById('l-pass').value;
-            if(u && p) socket.emit('login', {username:u, password:p});
-        }
-        function doRegister() {
-            let u = document.getElementById('r-user').value; let p = document.getElementById('r-pass').value;
-            if(u && p) socket.emit('register', {username:u, password:p});
-        }
-        socket.on('auth-error', (m) => document.getElementById('auth-err').innerText = m);
-        socket.on('login-success', (d) => {
-            user = d.username; bal = d.balance;
-            document.getElementById('balance-el').innerText = bal.toFixed(2);
-            document.getElementById('auth-modal').style.display = 'none';
-            resize(); initAudio();
-        });
-
-        // DEPOSIT
-        function toggleDeposit(show) { document.getElementById('deposit-modal').style.display = show?'flex':'none'; }
-        function submitDeposit() {
-            let a = document.getElementById('dep-amt').value; let u = document.getElementById('dep-utr').value;
-            if(a && u) { socket.emit('deposit-request', {username:user, amount:a, utr:u}); alert("Request Sent!"); toggleDeposit(false); }
-        }
-
-        // GAME LOGIC
-        socket.on('balance-update', (b) => { bal = b; document.getElementById('balance-el').innerText = bal.toFixed(2); });
-        socket.on('force-balance-update', (d) => { if(d.username===user){ bal=d.balance; document.getElementById('balance-el').innerText=bal.toFixed(2); alert("Deposit Received!"); } });
+        function login(){ let u=document.getElementById('l-u').value, p=document.getElementById('l-p').value; if(u&&p) socket.emit('login',{username:u,password:p}); }
+        function register(){ let u=document.getElementById('r-u').value, p=document.getElementById('r-p').value; if(u&&p) socket.emit('register',{username:u,password:p}); }
         
-        socket.on('history-update', (h) => {
-            let b = document.getElementById('history-bar'); b.innerHTML = "";
-            h.forEach(v => {
-                let p = document.createElement('div'); p.className = v>=10?"pill jackpot":v>=2?"pill win":"pill lose";
-                p.innerText = v.toFixed(2)+"x"; b.appendChild(p);
+        socket.on('login-success', d=>{ user=d.username; bal=d.balance; updateBal(); document.getElementById('auth-screen').style.display='none'; resize(); draw(); });
+
+        // --- WALLET ---
+        function toggleWallet(s){ 
+            document.getElementById('wallet-screen').style.display=s?'flex':'none'; 
+            if(s) socket.emit('get-transactions', user);
+        }
+        function switchTab(t){
+            document.querySelectorAll('.w-tab').forEach(e=>e.classList.remove('active'));
+            document.querySelectorAll('.w-content').forEach(e=>e.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-'+t).classList.add('active');
+        }
+        function reqDeposit(){
+            let a=document.getElementById('d-amt').value, u=document.getElementById('d-utr').value;
+            if(a&&u){ socket.emit('deposit-request',{username:user,amount:a,utr:u}); alert("Deposit Pending!"); toggleWallet(false); }
+        }
+        function reqWithdraw(){
+            let a=document.getElementById('w-amt').value, u=document.getElementById('w-upi').value;
+            if(a&&u){ socket.emit('withdraw-request',{username:user,amount:a,upi:u}); toggleWallet(false); }
+        }
+        socket.on('withdraw-success', m=>alert(m));
+        socket.on('withdraw-error', m=>alert(m));
+        
+        socket.on('transaction-history', list=>{
+            let h=document.getElementById('hist-list'); h.innerHTML="";
+            list.forEach(t=>{
+                let c=t.status==='SUCCESS'?'st-SUCCESS':t.status==='REJECTED'?'st-REJECTED':'st-PENDING';
+                h.innerHTML+=`<div class="h-item">
+                    <span>${t.type} ₹${t.amount}</span>
+                    <span class="${c}">${t.status}</span>
+                </div>`;
             });
         });
 
-        socket.on('state-change', (d) => {
-            state = d.state;
-            if(state === "IDLE") {
-                document.getElementById('status-text').innerText = "NEXT ROUND: " + d.countdown + "s";
-                document.getElementById('status-text').style.display = "inline-block";
-                document.getElementById('multiplier-text').innerText = "1.00x";
-                document.getElementById('multiplier-text').style.color = "white";
-                if(!active) {
-                    let btn = document.getElementById('action-btn');
-                    btn.innerText = "BET"; btn.className = "big-action-btn btn-green";
-                }
-            } else {
-                document.getElementById('status-text').style.display = "none";
-                startEngine();
-                let btn = document.getElementById('action-btn');
-                if(active) {
-                    btn.innerText = "CASH OUT"; btn.className = "big-action-btn btn-orange";
-                } else {
-                    btn.innerText = "WAIT"; btn.className = "big-action-btn"; btn.style.background="#333"; btn.style.opacity=0.5;
-                }
-            }
-        });
+        // --- GAME ---
+        function updateBal(){ document.getElementById('bal').innerText=bal.toFixed(2); }
+        socket.on('balance-update', b=>{ bal=b; updateBal(); });
+        socket.on('force-balance-update', d=>{ if(d.username===user){ bal=d.balance; updateBal(); alert("Wallet Balance Updated!"); }});
 
-        socket.on('timer-update', (t) => { if(state==="IDLE") document.getElementById('status-text').innerText = "STARTING IN " + t + "s"; });
+        socket.on('tick', m=>{ mult=m; document.getElementById('mult').innerText=m.toFixed(2)+"x"; draw(); if(active) updateBtn(`CASH OUT\n₹${(betVal*mult).toFixed(0)}`, 'btn-b'); });
+        socket.on('state-change', d=>{ state=d.state; if(state==='IDLE'){ resetUI(); document.getElementById('status').innerText="NEXT: "+d.countdown+"s"; } else { document.getElementById('status').style.display='none'; if(active) updateBtn("CASH OUT", 'btn-b'); else disableBtn(); } });
+        socket.on('crash', d=>{ document.getElementById('mult').style.color='#e74c3c'; document.getElementById('status').innerText=`FLEW @ ${d.multiplier}x`; document.getElementById('status').style.display='block'; if(active){ active=false; updateBtn("LOST", 'btn-r'); } setTimeout(()=>{if(!active) resetUI();}, 2000); });
 
-        socket.on('tick', (m) => {
-            mult = m; document.getElementById('multiplier-text').innerText = m.toFixed(2) + "x"; updateEngine(m);
-            if(active) document.getElementById('action-btn').innerHTML = "CASH OUT<br><small style='font-size:12px'>₹"+(betVal*m).toFixed(0)+"</small>";
-            draw();
-        });
-
-        socket.on('crash', (d) => {
-            stopEngine(); playSound('crash');
-            document.getElementById('multiplier-text').style.color = "#e74c3c";
-            document.getElementById('status-text').innerText = "FLEW AWAY @ " + d.multiplier.toFixed(2) + "x";
-            document.getElementById('status-text').style.display = "inline-block";
-            document.getElementById('status-text').style.background = "rgba(231,76,60,0.8)";
-            
-            if(active) {
-                active = false;
-                let btn = document.getElementById('action-btn');
-                btn.innerText = "LOST"; btn.className = "big-action-btn btn-red";
-            }
-            setTimeout(() => { 
-                 if(!active) { document.getElementById('action-btn').disabled = false; document.getElementById('action-btn').style.opacity=1; }
-            }, 1000);
-        });
-
-        function action() {
-            if(state==="IDLE" && !active) {
-                let v = parseInt(document.getElementById('bet-input').value);
-                if(v <= bal) {
-                    active = true; betVal = v;
-                    socket.emit('place-bet', {username:user, amount:v});
-                    let btn = document.getElementById('action-btn');
-                    btn.innerText = "WAITING..."; btn.className = "big-action-btn btn-red";
-                } else alert("Insufficient Balance!");
-            } else if(state==="FLYING" && active) {
-                active = false;
-                socket.emit('cash-out', {username:user, winAmount: betVal*mult});
-                playSound('win');
-                let btn = document.getElementById('action-btn');
-                btn.innerText = "WON"; btn.className = "big-action-btn btn-green";
+        function action(){
+            if(state==='IDLE' && !active){
+                let v=parseInt(document.getElementById('bet-amt').value);
+                if(v<=bal){ active=true; betVal=v; socket.emit('place-bet',{username:user,amount:v}); updateBtn("WAITING", 'btn-r'); } else alert("Low Balance");
+            } else if(state==='FLYING' && active){
+                active=false; socket.emit('cash-out',{username:user,winAmount:betVal*mult}); updateBtn("WON", 'btn-g');
             }
         }
 
-        // UTILS
-        function adjBet(v) { let e = document.getElementById('bet-input'); e.value = Math.max(10, parseInt(e.value)+v); }
-        function setBet(v) { document.getElementById('bet-input').value = v; }
-        function toggleMenu() { document.getElementById('menu-drawer').classList.toggle('open'); }
-        
-        // CANVAS & AUDIO
-        const cvs = document.getElementById('gameCanvas'), ctx = cvs.getContext('2d');
-        let w, h;
-        function resize() { w=cvs.parentElement.clientWidth; h=cvs.parentElement.clientHeight; cvs.width=w; cvs.height=h; draw(); }
-        window.onresize = resize;
+        function resetUI(){ document.getElementById('mult').style.color='white'; document.getElementById('mult').innerText="1.00x"; if(!active) updateBtn("BET", 'btn-g'); document.getElementById('act-btn').disabled=false; document.getElementById('act-btn').style.opacity=1; }
+        function updateBtn(t,c){ let b=document.getElementById('act-btn'); b.innerText=t; b.className=`act-btn ${c}`; }
+        function disableBtn(){ let b=document.getElementById('act-btn'); b.disabled=true; b.style.opacity=0.5; }
 
-        function draw() {
-            ctx.clearRect(0,0,w,h);
-            if(state==="CRASHED") return;
-            
-            // Grid
-            ctx.strokeStyle = "rgba(255,255,255,0.03)"; ctx.beginPath();
-            for(let i=0;i<w;i+=50){ctx.moveTo(i,0);ctx.lineTo(i,h);}
-            for(let i=0;i<h;i+=50){ctx.moveTo(0,i);ctx.lineTo(w,i);}
-            ctx.stroke();
-
-            let p=(mult-1)/3.5; if(p>1)p=1; 
-            let x=50+(p*(w-100)), y=h-50-(p*(h-100));
-            
-            ctx.beginPath(); ctx.moveTo(0,h); ctx.quadraticCurveTo(x/2,h,x,y); 
-            let g=ctx.createLinearGradient(0,h,x,y); g.addColorStop(0,"rgba(233,30,99,0)"); g.addColorStop(1,"rgba(233,30,99,0.4)");
-            ctx.fillStyle=g; ctx.fill(); ctx.strokeStyle="#e91e63"; ctx.lineWidth=4; ctx.stroke();
-
-            ctx.save(); ctx.translate(x,y); ctx.rotate(-0.3);
-            ctx.fillStyle="#e91e63"; ctx.beginPath(); ctx.ellipse(0,0,30,10,0,0,Math.PI*2); ctx.fill();
-            ctx.fillStyle="#880e4f"; ctx.beginPath(); ctx.moveTo(-10,-5); ctx.lineTo(-25,-15); ctx.lineTo(-20,-5); ctx.fill(); 
-            ctx.beginPath(); ctx.moveTo(-10,5); ctx.lineTo(-25,15); ctx.lineTo(-20,5); ctx.fill();
-            ctx.fillStyle="white"; ctx.beginPath(); ctx.arc(10,-2,3,0,Math.PI*2); ctx.fill();
-            if(state==="FLYING") {
-                ctx.fillStyle="#ffeb3b"; ctx.beginPath(); ctx.moveTo(-30,0); ctx.lineTo(-45-Math.random()*10, 4); ctx.lineTo(-40,0); ctx.lineTo(-45-Math.random()*10, -4); ctx.fill();
-            }
-            ctx.restore();
-        }
-
-        function initAudio() { try{audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch(e){} }
-        function startEngine() { if(!audioCtx)return; engineOsc=audioCtx.createOscillator(); let g=audioCtx.createGain(); engineOsc.connect(g); g.connect(audioCtx.destination); engineOsc.frequency.value=80; g.gain.value=0.05; engineOsc.start(); }
-        function updateEngine(m) { if(engineOsc)engineOsc.frequency.setTargetAtTime(80+(m*50), audioCtx.currentTime, 0.1); }
-        function stopEngine() { if(engineOsc){engineOsc.stop();engineOsc=null;} }
-        function playSound(t) { if(!audioCtx)return; let o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); if(t=='win'){o.frequency.setValueAtTime(400,audioCtx.currentTime);o.frequency.rampToValueAtTime(800,audioCtx.currentTime+0.2);}else{o.frequency.value=150;o.frequency.rampToValueAtTime(10,audioCtx.currentTime+0.3);} g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.3); o.start(); o.stop(audioCtx.currentTime+0.3); }
-
-        // FAKE BOTS & CHAT
-        const names = ["Aarav","Vivaan","Aditya","Arjun","Sai","Reyansh","Rohan","Vikram"];
-        setInterval(() => {
-            if(state!=="IDLE") return;
-            let html = ""; let n = Math.floor(Math.random()*5)+12;
-            document.getElementById('active-players').innerText = n*150;
-            for(let i=0; i<n; i++) {
-                html += `<div class="list-item"><span><div class="avatar">👤</div> ${names[i%names.length]}</span><span style="color:#2ea043">₹${(Math.floor(Math.random()*20)+1)*100}</span></div>`;
-            }
-            document.getElementById('bot-list').innerHTML = html;
-        }, 4000);
-
-        const msgs = ["Nice!", "Cashout fast", "Scam?", "Big win!", "Next 5x", "Wait for pink", "Lost it all :("];
-        setInterval(() => {
-            let d = document.getElementById('chat-list');
-            let m = document.createElement('div'); m.className = "chat-msg";
-            m.innerHTML = `<span class="chat-user">${names[Math.floor(Math.random()*names.length)]}:</span> ${msgs[Math.floor(Math.random()*msgs.length)]}`;
-            d.appendChild(m); d.scrollTop = d.scrollHeight;
-        }, 3000);
-
+        // --- CANVAS ---
+        const cvs=document.getElementById('cvs'), ctx=cvs.getContext('2d');
+        function resize(){ cvs.width=cvs.parentElement.clientWidth; cvs.height=cvs.parentElement.clientHeight; }
+        function draw(){ ctx.clearRect(0,0,cvs.width,cvs.height); if(state==='CRASHED')return; let p=(mult-1)/3.5; if(p>1)p=1; let x=50+p*(cvs.width-100), y=cvs.height-50-p*(cvs.height-100); ctx.beginPath(); ctx.moveTo(0,cvs.height); ctx.quadraticCurveTo(x/2,cvs.height,x,y); ctx.strokeStyle='#e91e63'; ctx.lineWidth=3; ctx.stroke(); ctx.fillStyle='rgba(233,30,99,0.3)'; ctx.fill(); ctx.beginPath(); ctx.arc(x,y,5,0,7); ctx.fillStyle='white'; ctx.fill(); }
+        window.onresize=resize;
     </script>
 </body>
 </html>
